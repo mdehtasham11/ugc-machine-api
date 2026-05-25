@@ -1,5 +1,32 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": ".",
-  "framework": null
+  "framework": null,
+  "cleanUrls": false,
+  "trailingSlash": false,
+  "routes": [
+    {
+      "src": "^/$",
+      "dest": "/index.html"
+    },
+    {
+      "src": "^/index\\.html$",
+      "dest": "/index.html"
+    },
+    {
+      "src": "^/v1\\.html$",
+      "dest": "/v1.html"
+    },
+    {
+      "src": "^/abc\\.html$",
+      "dest": "/abc.html"
+    },
+    {
+      "src": "^/v2/index\\.html$",
+      "dest": "/v2/index.html"
+    },
+    {
+      "handle": "filesystem"
+    }
+  ]
 }
