@@ -1,0 +1,6 @@
+config.json
+outputs/
+frontend/
+deploy/
+.git
+*.md

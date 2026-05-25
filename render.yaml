@@ -1,0 +1,17 @@
+# Render Blueprint — backend only (Docker). Frontend deploys separately on Vercel.
+# Dashboard: New > Blueprint > connect repo, or create Web Service manually with Docker.
+services:
+  - type: web
+    name: ugc-machine-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /config-status
+    envVars:
+      - key: KIE_API_KEY
+        sync: false
+      - key: KIE_BASE
+        value: https://api.kie.ai
+      - key: ALLOWED_ORIGIN
+        sync: false

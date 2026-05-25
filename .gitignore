@@ -1,0 +1,5 @@
+config.json
+outputs/*
+!outputs/.gitkeep
+ChromeDebugProfile/
+__pycache__/
