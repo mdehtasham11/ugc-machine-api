@@ -1,0 +1,7 @@
+{
+  "name": "ugc-machine-v2-frontend",
+  "private": true,
+  "scripts": {
+    "build": "node build-config.js"
+  }
+}

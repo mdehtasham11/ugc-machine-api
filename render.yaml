@@ -1,11 +1,11 @@
-# Render Blueprint — backend only (Docker). Frontend deploys separately on Vercel.
+# Render Blueprint - v2 backend only (Docker). Frontend deploys separately on Vercel.
 # Dashboard: New > Blueprint > connect repo, or create Web Service manually with Docker.
 services:
   - type: web
     name: ugc-machine-api
     runtime: docker
-    dockerfilePath: ./Dockerfile
-    dockerContext: .
+    dockerfilePath: ./v2/Dockerfile
+    dockerContext: ./v2
     plan: free
     healthCheckPath: /config-status
     envVars:

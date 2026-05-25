@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UGC Machine</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=JetBrains+Mono:wght@400;500&display=swap');
+  :root{--bg:#0a0b0e;--panel:#13151b;--panel2:#1a1d26;--line:#262a35;--txt:#e8eaf0;
+    --dim:#7b8194;--acc:#d6ff3f;--acc2:#5b8cff;--ok:#3fdd8a;--err:#ff5d6c;--radius:14px;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--txt);font-family:'Bricolage Grotesque',sans-serif;
+    min-height:100vh;padding:32px 20px 80px;
+    background-image:radial-gradient(circle at 20% 0%,rgba(91,140,255,.08),transparent 40%),
+      radial-gradient(circle at 90% 10%,rgba(214,255,63,.06),transparent 35%);}
+  .wrap{max-width:880px;margin:0 auto}
+  header{display:flex;align-items:baseline;gap:14px;margin-bottom:6px}
+  h1{font-size:34px;font-weight:800;letter-spacing:-1.5px}
+  .badge{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--acc);
+    border:1px solid var(--line);padding:3px 8px;border-radius:20px}
+  .sub{color:var(--dim);font-size:14px;margin-bottom:28px}
+  .steps{display:flex;gap:10px;margin-bottom:22px;font-family:'JetBrains Mono',monospace;font-size:12px}
+  .pill{flex:1;padding:10px 12px;border:1px solid var(--line);border-radius:10px;
+    color:var(--dim);background:var(--panel);transition:.25s}
+  .pill.active{border-color:var(--acc);color:var(--acc);box-shadow:0 0 0 1px var(--acc) inset}
+  .pill.done{border-color:var(--ok);color:var(--ok)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:22px;margin-bottom:18px}
+  label{display:block;font-size:13px;color:var(--dim);margin-bottom:7px;font-weight:600}
+  textarea,input,select{width:100%;background:var(--panel2);border:1px solid var(--line);
+    color:var(--txt);border-radius:10px;padding:13px 14px;font-size:15px;font-family:inherit;resize:vertical}
+  textarea{font-family:'JetBrains Mono',monospace;font-size:13px;line-height:1.5}
+  textarea:focus,input:focus,select:focus{outline:none;border-color:var(--acc2)}
+  .row{display:flex;gap:12px;flex-wrap:wrap}
+  .row>div{flex:1;min-width:150px}
+  .field{margin-bottom:16px}
+  .toggle{display:flex;gap:8px;margin-bottom:16px}
+  .toggle button{flex:1;background:var(--panel2);border:1px solid var(--line);color:var(--dim);
+    padding:11px;border-radius:10px;cursor:pointer;font-family:inherit;font-size:14px;font-weight:600}
+  .toggle button.on{background:var(--acc);color:#0a0b0e;border-color:var(--acc)}
+  .btn{background:var(--acc);color:#0a0b0e;border:none;border-radius:11px;padding:15px 22px;
+    font-size:16px;font-weight:700;cursor:pointer;font-family:inherit;width:100%;transition:.15s;letter-spacing:-.3px}
+  .btn:hover{transform:translateY(-1px)}
+  .btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+  .btn.alt{background:var(--acc2);color:#fff}
+  .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--dim)}
+  .hint{font-size:12px;color:var(--dim);margin-top:5px;font-family:'JetBrains Mono',monospace;line-height:1.5}
+  .plan{display:none}
+  .status{display:none;align-items:center;gap:12px;font-family:'JetBrains Mono',monospace;
+    font-size:13px;color:var(--acc);padding:14px;background:var(--panel2);
+    border:1px solid var(--line);border-radius:10px;margin-top:14px}
+  .spin{width:16px;height:16px;border:2px solid var(--line);border-top-color:var(--acc);
+    border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .result{display:none;text-align:center}
+  .result img,.result video{max-width:100%;border-radius:12px;border:1px solid var(--line);margin-bottom:14px}
+  .err{color:var(--err);font-size:13px;margin-top:10px;font-family:'JetBrains Mono',monospace}
+  .gallery{margin-top:24px}.gallery h3{font-size:14px;color:var(--dim);margin-bottom:12px;font-weight:600}
+  .setup{background:rgba(255,93,108,.08);border:1px solid var(--err);color:var(--err);
+    padding:14px;border-radius:10px;font-size:13px;margin-bottom:20px;display:none;
+    font-family:'JetBrains Mono',monospace;line-height:1.6}
+  details{margin-top:8px}summary{cursor:pointer;color:var(--acc2);font-size:13px;font-family:'JetBrains Mono',monospace}
+  .tmpl{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px;
+    margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--dim);white-space:pre-wrap;line-height:1.6}
+  .note{font-size:12px;color:var(--acc);font-family:'JetBrains Mono',monospace;margin-top:8px;min-height:16px}
+  .cost{font-size:12px;color:var(--dim);font-family:'JetBrains Mono',monospace;margin-top:10px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><h1>UGC Machine</h1><span class="badge">kling 3.0 · seedance · local</span></header>
+  <p class="sub">build avatar → write performance → seamless 30s with synced speech.</p>
+  <div class="setup" id="setup"></div>
+  <div class="steps">
+    <div class="pill active" id="p1">1 · build the avatar</div>
+    <div class="pill" id="p2">2 · performance</div>
+    <div class="pill" id="p3">3 · engine + go</div>
+  </div>
+
+  <!-- STEP 1 -->
+  <div class="card" id="card1">
+    <div class="toggle">
+      <button class="on" id="aGen" onclick="setAvatarSrc('gen')">✨ generate avatar</button>
+      <button id="aOwn" onclick="setAvatarSrc('own')">📁 use my own image</button>
+    </div>
+
+    <!-- generate path -->
+    <div id="genPath">
+      <div class="field">
+        <label>avatar + scene description</label>
+        <textarea id="imgprompt" rows="7" placeholder="how the avatar looks, wardrobe, background/setting..."></textarea>
+        <div class="hint">generates the reference frame. redo cheaply until right.</div>
+        <details><summary>avatar description template</summary><div class="tmpl" id="tmplImg">loading...</div></details>
+      </div>
+      <div class="field">
+        <label>product reference image <span style="opacity:.6">(optional)</span></label>
+        <input type="file" id="prodFile" accept="image/*" onchange="uploadProduct()">
+        <div class="hint" id="prodHint">attach a photo of your real product — it'll appear in the generated scene instead of an invented lookalike.</div>
+        <img id="prodPreview" style="display:none;max-width:120px;border-radius:8px;margin-top:8px;border:1px solid var(--line)">
+      </div>
+      <div class="row" style="margin-bottom:16px"><div>
+        <label>image model</label>
+        <select id="imgModel">
+          <option value="nano-banana-pro">Nano Banana Pro (real, cheap, best for product ref)</option>
+          <option value="gpt-image-2">GPT Image 2</option>
+          <option value="seedream-4.5">Seedream 4.5</option>
+          <option value="imagen4-ultra">Imagen 4 Ultra</option>
+        </select>
+      </div></div>
+      <button class="btn alt" id="imgBtn" onclick="doImage()">🎨 generate reference frame</button>
+      <div class="status" id="s2"><div class="spin"></div><span>painting the scene...</span></div>
+      <div class="result" id="imgResult"><img id="imgOut">
+        <div class="row">
+          <button class="btn ghost" onclick="doImage()">↻ redo frame</button>
+          <button class="btn" onclick="goStep2()">use this avatar →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- own-image path -->
+    <div id="ownPath" style="display:none">
+      <div class="field">
+        <label>upload your avatar image</label>
+        <input type="file" id="avatarFile" accept="image/*" onchange="uploadAvatar()">
+        <div class="hint" id="avatarHint">use a face/scene you already have. it'll be animated directly — no generation step. for talking-head, pick one looking toward camera with a relaxed, slightly-open mouth.</div>
+      </div>
+      <div class="status" id="sOwn"><div class="spin"></div><span>uploading...</span></div>
+      <div class="result" id="ownResult"><img id="ownOut">
+        <div class="row">
+          <button class="btn" onclick="goStep2()">use this avatar →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 2 -->
+  <div class="card plan" id="card2">
+    <div class="field">
+      <label>performance prompt — motion + spoken lines + how they're said</label>
+      <textarea id="perf" rows="7" placeholder='She walks down a busy sidewalk, slightly out of breath, talking fast. She says: "okay i have to tell you about this." She slows, leans in: "my husband hasn'"'"'t snored in three weeks."'></textarea>
+      <div class="hint">spoken words in quotes after "says:". everything else is acted. write it as full sentences — the tool splits clips at sentence boundaries so the voice seams land on natural pauses.</div>
+      <details><summary>performance prompt template</summary><div class="tmpl" id="tmplPerf">loading...</div></details>
+    </div>
+    <div class="field">
+      <label>voice anchor — locks the voice across all clips</label>
+      <input id="voice" placeholder='e.g. warm late-30s woman, slight rasp, casual american accent'>
+      <div class="hint">injected into every clip so the voice stays consistent. describe age, gender, tone, accent.</div>
+    </div>
+    <button class="btn" onclick="goStep3()">next: engine + go →</button>
+  </div>
+
+  <!-- STEP 3 -->
+  <div class="card plan" id="card3">
+    <div class="toggle">
+      <button class="on" id="mChain" onclick="setMode('chain')">🎬 seamless take</button>
+      <button id="mCut" onclick="setMode('cut')">✂️ multi-shot cuts</button>
+    </div>
+    <div class="note" id="modeNote"></div>
+    <div class="row" style="margin:16px 0">
+      <div>
+        <label>engine</label>
+        <select id="engine" onchange="costEst()">
+          <option value="kling-3.0">Kling 3.0 (primary, cheapest @1080p)</option>
+          <option value="seedance-2.0">Seedance 2.0 (secondary, hero clips)</option>
+        </select>
+      </div>
+      <div>
+        <label>resolution</label>
+        <select id="res" onchange="costEst()">
+          <option value="720p">720p (cheap test)</option>
+          <option value="1080p" selected>1080p (final)</option>
+        </select>
+      </div>
+      <div>
+        <label>aspect</label>
+        <select id="aspect">
+          <option value="9:16">9:16 vertical</option>
+          <option value="16:9">16:9</option>
+          <option value="1:1">1:1</option>
+        </select>
+      </div>
+    </div>
+    <div class="cost" id="cost"></div>
+    <button class="btn ghost" id="qcBtn" onclick="doQuickCheck()" style="margin-top:14px">👀 Quick Check How It'll Look</button>
+    <div class="hint" style="text-align:center;margin-top:6px">optional · generates just the opening ~5s so you can eyeball it before the full render. the clip is reused if you proceed, so it's not wasted.</div>
+    <div class="status" id="sqc"><div class="spin"></div><span id="sqcmsg">quick check...</span></div>
+    <div class="result" id="qcResult"><video id="qcOut" controls></video>
+      <div class="hint" style="color:var(--acc);margin-bottom:10px">↑ opening preview. happy? hit make the video below — it reuses this clip.</div>
+    </div>
+    <button class="btn" id="vidBtn" onclick="doVideo()" style="margin-top:14px">🎬 make the video</button>
+    <div class="status" id="s3"><div class="spin"></div><span id="s3msg">starting...</span></div>
+    <div class="result" id="vidResult"><video id="vidOut" controls></video>
+      <div class="row">
+        <button class="btn ghost" onclick="resetAll()">＋ new video</button>
+        <a id="dl" class="btn" download>⬇ download</a>
+      </div>
+    </div>
+    <div class="err" id="vidErr"></div>
+  </div>
+  <div class="gallery" id="gallery"></div>
+</div>
+
+<script src="config.js"></script>
+<script>
+const API=(window.UGC_API_URL||location.origin).replace(/\/$/,''); let IMG_URL=null, MODE='chain', PRODUCT_URL='';
+
+function fileToDataURL(file){return new Promise((res,rej)=>{
+  const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file);});}
+
+function setAvatarSrc(s){
+  document.getElementById('aGen').classList.toggle('on',s==='gen');
+  document.getElementById('aOwn').classList.toggle('on',s==='own');
+  document.getElementById('genPath').style.display = s==='gen'?'block':'none';
+  document.getElementById('ownPath').style.display = s==='own'?'block':'none';
+}
+
+async function uploadProduct(){
+  const f=document.getElementById('prodFile').files[0]; if(!f)return;
+  document.getElementById('prodHint').innerText='uploading product image...';
+  const data=await fileToDataURL(f);
+  const r=await fetch(API+'/upload',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({data,filename:f.name})});
+  const d=await r.json();
+  if(d.url){PRODUCT_URL=d.url;
+    document.getElementById('prodPreview').src=data;
+    document.getElementById('prodPreview').style.display='block';
+    document.getElementById('prodHint').innerText='✓ product attached — it will appear in the scene.';
+  } else {document.getElementById('prodHint').innerText='✗ upload failed: '+(d.error||'unknown');}
+}
+
+async function uploadAvatar(){
+  const f=document.getElementById('avatarFile').files[0]; if(!f)return;
+  document.getElementById('avatarHint').innerText='uploading...'; show('sOwn');
+  const data=await fileToDataURL(f);
+  const r=await fetch(API+'/upload',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({data,filename:f.name})});
+  const d=await r.json(); show('sOwn',false);
+  if(d.url){IMG_URL=d.url;
+    document.getElementById('ownOut').src=data;
+    document.getElementById('ownResult').style.display='block';
+    document.getElementById('avatarHint').innerText='✓ avatar ready.';
+  } else {document.getElementById('avatarHint').innerText='✗ upload failed: '+(d.error||'unknown');}
+}
+const TMPL_IMG=`[SUBJECT] real everyday person. exact age, gender, ethnicity, build,
+   hair, features (glasses, freckles, under-eye bags). NOT a model.
+[WARDROBE] specific casual clothing, colors, slightly worn.
+[SETTING] exact location, background objects, depth, a little clutter.
+[LIGHTING] natural + imperfect (window light one side). no studio.
+[CAMERA] phone front camera, slight grain, real skin texture + pores. 9:16.
+[EXPRESSION] looking into lens, relaxed, mid-thought.
+[NEGATIVES] no studio light, no glamour retouch, no glossy skin, no model, no text.`;
+const TMPL_PERF=`Write motion + dialogue together, full sentences:
+[ACTION] body/camera: walking, gesturing, out of breath, leaning in...
+[DIALOGUE] exact words in quotes after "says:" - she says: "..."
+[TONE] fast and excited, then slows and whispers, breathless...
+Keep each sentence a complete thought - clips split on sentence ends, so
+seams land on natural pauses and the voice change is invisible.`;
+document.getElementById('tmplImg').innerText=TMPL_IMG;
+document.getElementById('tmplPerf').innerText=TMPL_PERF;
+
+fetch(API+'/config-status').then(r=>r.json()).then(d=>{
+  if(!d.configured){const s=document.getElementById('setup');s.style.display='block';
+    s.innerHTML='⚠ add your kie_api_key in <b>config.json</b>, then restart the server.';}
+}).catch(()=>{});
+
+function show(id,on=true){document.getElementById(id).style.display=on?'flex':'none';}
+function setPill(n){['p1','p2','p3'].forEach((p,i)=>{
+  document.getElementById(p).className='pill'+(i+1<n?' done':(i+1===n?' active':''));});}
+
+function setMode(m){MODE=m;
+  document.getElementById('mChain').classList.toggle('on',m==='chain');
+  document.getElementById('mCut').classList.toggle('on',m==='cut');
+  document.getElementById('modeNote').innerText = m==='chain'
+    ? '→ each clip continues from the last frame of the previous. one seamless take.'
+    : '→ each clip generated independently. clean cuts for multi-shot concepts.';
+}
+function costEst(){
+  const e=document.getElementById('engine').value, r=document.getElementById('res').value;
+  let perSec = (e==='kling-3.0') ? (r==='1080p'?0.135:0.10) : (r==='1080p'?0.51:0.205);
+  // estimate clips from sentence count in the performance prompt
+  const perf=(document.getElementById('perf').value||'').trim();
+  const sentences=(perf.match(/[.!?]+/g)||[]).length || 1;
+  const clips=Math.max(1, Math.ceil(sentences/2));
+  const secs=clips*5;
+  document.getElementById('cost').innerText =
+    `~$${perSec.toFixed(3)}/s · your script ≈ ${clips} clip${clips>1?'s':''} (~${secs}s) ≈ $${(perSec*secs).toFixed(2)} · quick check ≈ $${(perSec*5).toFixed(2)}`;
+}
+
+async function poll(jid,onDone,msgEl){
+  const t=setInterval(async()=>{
+    const d=await (await fetch(API+'/job/'+jid)).json();
+    if(msgEl&&d.message)document.getElementById(msgEl).innerText=d.message;
+    if(d.status==='done'){clearInterval(t);onDone(d.data);}
+    if(d.status==='error'){clearInterval(t);onDone(null,d.message);}
+  },2500);
+}
+
+async function doImage(){
+  const p=document.getElementById('imgprompt').value.trim();
+  if(!p){alert('describe the avatar + scene first');return;}
+  document.getElementById('imgBtn').disabled=true;
+  document.getElementById('imgResult').style.display='none'; show('s2');
+  const r=await fetch(API+'/gen-image',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({image_prompt:p,image_model:document.getElementById('imgModel').value,
+      product_url:PRODUCT_URL})});
+  const {job_id}=await r.json();
+  poll(job_id,(data,err)=>{show('s2',false);document.getElementById('imgBtn').disabled=false;
+    if(err){alert('image failed: '+err);return;}
+    IMG_URL=data.image_url;document.getElementById('imgOut').src=data.image_url;
+    document.getElementById('imgResult').style.display='block';});
+}
+function goStep2(){document.getElementById('card2').style.display='block';setPill(2);
+  document.getElementById('card2').scrollIntoView({behavior:'smooth'});}
+function goStep3(){
+  if(!IMG_URL){alert('generate a reference frame first');return;}
+  if(!document.getElementById('perf').value.trim()){alert('write the performance prompt first');return;}
+  document.getElementById('card3').style.display='block';setPill(3);setMode('chain');costEst();
+  document.getElementById('card3').scrollIntoView({behavior:'smooth'});}
+
+async function doQuickCheck(){
+  if(!IMG_URL){alert('generate a reference frame first');return;}
+  if(!document.getElementById('perf').value.trim()){alert('write the performance prompt first');return;}
+  document.getElementById('qcBtn').disabled=true;
+  document.getElementById('qcResult').style.display='none';
+  show('sqc');
+  const r=await fetch(API+'/quick-check',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({engine:document.getElementById('engine').value,image_url:IMG_URL,
+      performance:document.getElementById('perf').value,
+      voice_anchor:document.getElementById('voice').value,
+      mode:MODE,aspect_ratio:document.getElementById('aspect').value,
+      resolution:document.getElementById('res').value,audio:true})});
+  const {job_id}=await r.json();
+  poll(job_id,(data,err)=>{show('sqc',false);document.getElementById('qcBtn').disabled=false;
+    if(err){alert('quick check failed: '+err);return;}
+    document.getElementById('qcOut').src=API+data.local_url;
+    document.getElementById('qcResult').style.display='block';},'sqcmsg');
+}
+
+async function doVideo(){
+  if(!IMG_URL){alert('generate a reference frame first');return;}
+  document.getElementById('vidBtn').disabled=true;
+  document.getElementById('vidResult').style.display='none';
+  document.getElementById('vidErr').innerText=''; show('s3');
+  const r=await fetch(API+'/gen-video',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({engine:document.getElementById('engine').value,image_url:IMG_URL,
+      performance:document.getElementById('perf').value,
+      voice_anchor:document.getElementById('voice').value,
+      mode:MODE,aspect_ratio:document.getElementById('aspect').value,
+      resolution:document.getElementById('res').value,audio:true})});
+  const {job_id}=await r.json();
+  poll(job_id,(data,err)=>{show('s3',false);document.getElementById('vidBtn').disabled=false;
+    if(err){document.getElementById('vidErr').innerText='✗ '+err;return;}
+    const url=API+data.local_url;
+    document.getElementById('vidOut').src=url;document.getElementById('dl').href=url;
+    document.getElementById('vidResult').style.display='block';addToGallery(url);},'s3msg');
+}
+function addToGallery(url){const g=document.getElementById('gallery');
+  if(!g.querySelector('h3'))g.innerHTML='<h3>this session</h3>';
+  const v=document.createElement('video');v.src=url;v.controls=true;v.style.width='180px';
+  v.style.borderRadius='10px';v.style.marginRight='10px';v.style.border='1px solid var(--line)';g.appendChild(v);}
+function resetAll(){document.getElementById('perf').value='';document.getElementById('imgprompt').value='';
+  document.getElementById('voice').value='';PRODUCT_URL='';
+  document.getElementById('prodPreview').style.display='none';
+  document.getElementById('ownResult').style.display='none';
+  setAvatarSrc('gen');
+  document.getElementById('card2').style.display='none';document.getElementById('card3').style.display='none';
+  document.getElementById('imgResult').style.display='none';document.getElementById('vidResult').style.display='none';
+  document.getElementById('qcResult').style.display='none';
+  IMG_URL=null;setPill(1);window.scrollTo({top:0,behavior:'smooth'});}
+</script>
+</body>
+</html>

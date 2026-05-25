@@ -4,8 +4,8 @@ The app is split because Vercel cannot run this backend (needs **FFmpeg**, **lon
 
 | Part | Host | Folder |
 |------|------|--------|
-| UI | **Vercel** | `ugc-machine/frontend/` |
-| API | **Render** (Docker) | `ugc-machine/` (`server.py` + `Dockerfile`) |
+| UI | **Vercel** | `ugc-machine/v2/` |
+| API | **Render** (Docker) | `ugc-machine/v2/` (`server.py` + `Dockerfile`) |
 
 ---
 
@@ -16,8 +16,9 @@ The app is split because Vercel cannot run this backend (needs **FFmpeg**, **lon
 3. Connect the repo.
 4. Settings:
    - **Runtime:** Docker
-   - **Root directory:** `ugc-machine` (if repo is the parent `Secret War` folder)
-   - **Dockerfile path:** `Dockerfile`
+   - **Root directory:** repo root
+   - **Dockerfile path:** `v2/Dockerfile`
+   - **Docker context:** `v2`
    - **Instance type:** at least **Starter** (not Free) — video jobs run 15–25+ minutes; Free spins down and may kill long work.
 5. **Environment variables:**
 
@@ -39,7 +40,7 @@ Or use **Blueprint**: New → Blueprint → select repo with `render.yaml` in `u
 
 1. [Vercel Dashboard](https://vercel.com) → **Add New Project** → import the same repo.
 2. Settings:
-   - **Root directory:** `ugc-machine/frontend`
+   - **Root directory:** `ugc-machine/v2`
    - **Framework preset:** Other
    - Build command / output directory are read from `vercel.json` (`npm run build`, output `.`).
 3. **Environment variable** (Production + Preview):
@@ -71,7 +72,7 @@ npm run build
 npx serve .
 ```
 
-Or just use http://localhost:8745 (backend serves UI + API together).
+Or just use http://localhost:8745 (v2 backend serves UI + API together). If opening `v2/index.html` through Live Server, make sure `v2/config.js` points to `http://localhost:8745`.
 
 ---
 

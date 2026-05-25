@@ -15,18 +15,14 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(HERE, "config.json")
 OUTPUTS_DIR = os.path.join(HERE, "outputs")
 STATIC_DIR  = os.path.join(HERE, "static")
-V2_FRONTEND = os.path.join(HERE, "v2", "index.html")
+FRONTEND_PATH = os.path.join(HERE, "index.html")
 PORT = int(os.environ.get("PORT", "8745"))
 
-DEFAULT_CONFIG = {"kie_api_key": "PASTE_THE_REAL_KEY_HERE", "kie_base": "https://api.kie.ai"}
+DEFAULT_CONFIG = {"kie_api_key": "PASTE_YOUR_KIE_KEY_HERE", "kie_base": "https://api.kie.ai"}
 PLACEHOLDER_KEYS = {"", "PASTE_THE_REAL_KEY_HERE", "PASTE_YOUR_KIE_KEY_HERE"}
 
 KIE_CREATE = "/api/v1/jobs/createTask"
 KIE_RECORD = "/api/v1/jobs/recordInfo"
-
-def _cors_origin():
-    o = os.environ.get("ALLOWED_ORIGIN", "*").strip()
-    return o if o else "*"
 
 IMAGE_MODELS = {
     "nano-banana-pro": "nano-banana-pro",
@@ -61,6 +57,10 @@ CONFIG = load_config()
 
 def is_configured():
     return CONFIG.get("kie_api_key", "").strip() not in PLACEHOLDER_KEYS
+
+def _cors_origin():
+    o = os.environ.get("ALLOWED_ORIGIN", "*").strip()
+    return o if o else "*"
 
 # ---------------------------------------------------------------- http
 def _http(url, method="GET", headers=None, body=None, timeout=120):
@@ -103,24 +103,12 @@ def kie_poll(task_id, timeout=900):
     return None, "timeout"
 
 def download(url, prefix):
-    import ssl
     ext = os.path.splitext(url.split("?")[0])[1] or ".bin"
     fname = f"{prefix}_{int(time.time()*1000)}{ext}"
-    target_path = os.path.join(OUTPUTS_DIR, fname)
     try:
-        req = urllib.request.Request(
-            url,
-            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
-        )
-        ctx = ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
-        with urllib.request.urlopen(req, context=ctx, timeout=60) as r:
-            with open(target_path, "wb") as f:
-                f.write(r.read())
+        urllib.request.urlretrieve(url, os.path.join(OUTPUTS_DIR, fname))
         return fname
-    except Exception as e:
-        print(f"Download failed for {url}: {e}")
+    except Exception:
         return None
 
 def extract_last_frame(video_path):
@@ -135,8 +123,6 @@ def extract_last_frame(video_path):
 
 def concat_clips(clip_paths, label="final"):
     """Stitch clips into one mp4. Re-encode for safe concat across clips."""
-    # Filter out None and non-existent files
-    clip_paths = [p for p in clip_paths if p and os.path.exists(p)]
     if not clip_paths: return None
     if len(clip_paths) == 1:
         out = os.path.join(OUTPUTS_DIR, f"ugc_{label}_{int(time.time())}.mp4")
@@ -224,18 +210,18 @@ def gen_clip(engine, prompt, first_frame_url, aspect, resolution, audio):
         return (urls[0] if urls else None), err
 
 # ---------------------------------------------------------------- workers
-def worker_image(jid, image_prompt, image_model_key):
+def worker_image(jid, image_prompt, image_model_key, product_url=""):
     model = IMAGE_MODELS.get(image_model_key, IMAGE_MODELS["nano-banana-pro"])
     set_job(jid, status="running", step="image", message="generating reference frame...")
-    image_input = {"prompt": image_prompt}
-    if model == "nano-banana-pro":
-        image_input.update({
-            "image_input": [],
-            "aspect_ratio": "9:16",
-            "resolution": "1K",
-            "output_format": "png",
-        })
-    tid, err = kie_create(model, image_input)
+    inp = {"prompt": image_prompt}
+    if product_url:
+        # reference image so the real product appears in the scene (not invented).
+        # Nano Banana family uses image_input[]; the edit/seedream paths use image_urls[].
+        if "nano-banana" in model:
+            inp["image_input"] = [product_url]
+        else:
+            inp["image_urls"] = [product_url]
+    tid, err = kie_create(model, inp)
     if err: return set_job(jid, status="error", message=err)
     urls, err = kie_poll(tid)
     if err: return set_job(jid, status="error", message=f"image: {err}")
@@ -278,8 +264,6 @@ def worker_video(jid, engine, image_url, performance, voice_anchor,
                     return set_job(jid, status="error", message=f"{label}: {err or 'no url'}")
                 fname = download(vurl, f"clip{i+1}")
                 fpath = os.path.join(OUTPUTS_DIR, fname) if fname else None
-                if not fpath or not os.path.exists(fpath):
-                    return set_job(jid, status="error", message=f"{label}: download failed from {vurl}")
                 if i == 0 and fpath:
                     CLIP_CACHE[cache_key] = fpath   # cache the first clip for reuse
             clip_files.append(fpath)
@@ -310,26 +294,31 @@ def worker_video(jid, engine, image_url, performance, voice_anchor,
     except Exception as e:
         set_job(jid, status="error", message=str(e))
 
+KIE_FILE_UPLOAD = "https://kieai.redpandaai.co/api/file-base64-upload"
+
 def upload_local(path):
-    """Upload a local file to Kie's file API so a chaining frame has a public URL.
-    Falls back to None (engine then reuses the original avatar frame)."""
+    """Upload a local file to Kie's file host (base64 endpoint) and return a public URL
+    the generation API can fetch. Used for chaining frames AND user uploads.
+    Returns the URL string, or None on failure."""
     try:
-        # Kie file upload: multipart to /api/v1/file/upload (best-effort).
-        import mimetypes
-        boundary = "----ugc" + uuid.uuid4().hex
-        fname = os.path.basename(path)
-        ctype = mimetypes.guess_type(path)[0] or "application/octet-stream"
-        with open(path, "rb") as f: filedata = f.read()
-        body = (f"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; "
-                f"filename=\"{fname}\"\r\nContent-Type: {ctype}\r\n\r\n").encode() + filedata + \
-               f"\r\n--{boundary}--\r\n".encode()
-        req = urllib.request.Request(CONFIG["kie_base"]+"/api/v1/file/upload",
-                data=body, method="POST",
-                headers={"Authorization": f"Bearer {CONFIG['kie_api_key']}",
-                         "Content-Type": f"multipart/form-data; boundary={boundary}"})
-        with urllib.request.urlopen(req, timeout=120) as r:
-            resp = json.loads(r.read().decode())
-        return (resp.get("data") or {}).get("url") or resp.get("url")
+        import base64, mimetypes
+        ctype = mimetypes.guess_type(path)[0] or "image/png"
+        with open(path, "rb") as f:
+            b64 = base64.b64encode(f.read()).decode()
+        data_url = f"data:{ctype};base64,{b64}"
+        return upload_base64(data_url, os.path.basename(path))
+    except Exception:
+        return None
+
+def upload_base64(data_url, filename):
+    """POST a data-URL to Kie's base64 file upload. Returns public URL or None."""
+    try:
+        status, resp = _http(KIE_FILE_UPLOAD, "POST",
+            {"Authorization": f"Bearer {CONFIG['kie_api_key']}", "Content-Type": "application/json"},
+            {"base64Data": data_url, "uploadPath": "ugc-uploads", "fileName": filename},
+            timeout=120)
+        d = resp.get("data") or {}
+        return d.get("downloadUrl") or d.get("fileUrl") or d.get("url") or resp.get("url")
     except Exception:
         return None
 
@@ -356,35 +345,43 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
     def do_GET(self):
-        if self.path in ("/","/index.html"):
-            with open(os.path.join(STATIC_DIR,"index.html"),"rb") as f:
-                return self._send(200, f.read(), "text/html")
-        if self.path == "/v1.html":
-            with open(V2_FRONTEND, "rb") as f:
+        if self.path in ("/","/index.html","/v1.html"):
+            fp = FRONTEND_PATH if os.path.exists(FRONTEND_PATH) else os.path.join(STATIC_DIR, "index.html")
+            with open(fp,"rb") as f:
                 return self._send(200, f.read(), "text/html")
         if self.path == "/config.js":
-            fp = os.path.join(STATIC_DIR, "config.js")
-            if os.path.exists(fp):
-                with open(fp, "rb") as f:
-                    return self._send(200, f.read(), "application/javascript")
-            return self._send(200, b"window.UGC_API_URL=window.UGC_API_URL||'';\n", "application/javascript")
+            api_url = os.environ.get("UGC_API_URL", "").strip().rstrip("/")
+            return self._send(200, f"window.UGC_API_URL = {json.dumps(api_url)};\n", "application/javascript")
         if self.path.startswith("/job/"):
             return self._send(200, get_job(self.path.split("/job/")[1]))
         if self.path.startswith("/outputs/"):
             fp = os.path.join(OUTPUTS_DIR, os.path.basename(self.path))
             if os.path.exists(fp):
+                import mimetypes as _mt
+                ctype = _mt.guess_type(fp)[0] or "application/octet-stream"
                 with open(fp,"rb") as f:
-                    return self._send(200, f.read(), "video/mp4")
+                    return self._send(200, f.read(), ctype)
             return self._send(404, {"error":"not found"})
         if self.path == "/config-status":
             return self._send(200, {"configured": is_configured()})
         return self._send(404, {"error":"not found"})
     def do_POST(self):
         b = self._body()
+        if self.path == "/upload":
+            # browser sends {data: "data:image/...;base64,...", filename}. Push straight
+            # to Kie's file host so the generation API can fetch it by URL.
+            try:
+                url = upload_base64(b.get("data",""), b.get("filename","upload.png"))
+                if url:
+                    return self._send(200, {"url": url})
+                return self._send(200, {"error": "upload failed - check key/network"})
+            except Exception as e:
+                return self._send(200, {"error": str(e)})
         if self.path == "/gen-image":
             jid = uuid.uuid4().hex[:12]; set_job(jid, status="queued", step="image")
             threading.Thread(target=worker_image, args=(jid,
-                b.get("image_prompt",""), b.get("image_model","nano-banana-pro")),
+                b.get("image_prompt",""), b.get("image_model","nano-banana-pro"),
+                b.get("product_url","")),
                 daemon=True).start()
             return self._send(200, {"job_id": jid})
         if self.path == "/gen-video":

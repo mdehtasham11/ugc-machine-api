@@ -1,5 +1,10 @@
 config.json
+v2/config.json
 outputs/*
+v2/outputs/*
 !outputs/.gitkeep
 ChromeDebugProfile/
 __pycache__/
+v2/__pycache__/
+.DS_Store
+*/.DS_Store
