@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 
-const DEFAULT_API_URL = "https://ugc-machine-api-i4h2.onrender.com";
+const DEFAULT_API_URL = "https://ugc-machine-api.onrender.com";
 const api = (process.env.UGC_API_URL || DEFAULT_API_URL).trim().replace(/\/$/, "");
 if (!api) {
   console.warn(
