@@ -8,6 +8,7 @@ RUN apt-get update \
 WORKDIR /app
 COPY server.py .
 COPY static ./static
+COPY v2 ./v2
 RUN mkdir -p outputs
 
 EXPOSE 10000

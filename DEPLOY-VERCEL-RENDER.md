@@ -4,7 +4,7 @@ The app is split because Vercel cannot run this backend (needs **FFmpeg**, **lon
 
 | Part | Host | Folder |
 |------|------|--------|
-| UI | **Vercel** | `ugc-machine/v2/` |
+| UI | **Vercel** | `v2/` |
 | API | **Render** (Docker) | `ugc-machine/v2/` (`server.py` + `Dockerfile`) |
 
 ---
@@ -40,7 +40,7 @@ Or use **Blueprint**: New → Blueprint → select repo with `render.yaml` in `u
 
 1. [Vercel Dashboard](https://vercel.com) → **Add New Project** → import the same repo.
 2. Settings:
-   - **Root directory:** `ugc-machine/v2`
+   - **Root directory:** `v2` if the GitHub repo root is this `ugc-machine` folder. Use `ugc-machine/v2` only if this folder lives inside a larger monorepo.
    - **Framework preset:** Other
    - Build command / output directory are read from `vercel.json` (`npm run build`, output `.`).
 3. **Environment variable** (Production + Preview):
