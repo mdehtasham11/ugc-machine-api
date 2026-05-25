@@ -2,6 +2,8 @@ config.json
 v2/config.json
 outputs/*
 v2/outputs/*
+v2/ugc-machine.zip
+v2/ugc-machine/
 !outputs/.gitkeep
 ChromeDebugProfile/
 __pycache__/
