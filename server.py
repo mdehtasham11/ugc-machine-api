@@ -102,12 +102,24 @@ def kie_poll(task_id, timeout=900):
     return None, "timeout"
 
 def download(url, prefix):
+    import ssl
     ext = os.path.splitext(url.split("?")[0])[1] or ".bin"
     fname = f"{prefix}_{int(time.time()*1000)}{ext}"
+    target_path = os.path.join(OUTPUTS_DIR, fname)
     try:
-        urllib.request.urlretrieve(url, os.path.join(OUTPUTS_DIR, fname))
+        req = urllib.request.Request(
+            url,
+            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+        )
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        with urllib.request.urlopen(req, context=ctx, timeout=60) as r:
+            with open(target_path, "wb") as f:
+                f.write(r.read())
         return fname
-    except Exception:
+    except Exception as e:
+        print(f"Download failed for {url}: {e}")
         return None
 
 def extract_last_frame(video_path):
